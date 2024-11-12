@@ -10,7 +10,7 @@
    - Jika tidak, peringatan akan ditampilkan, dan skrip akan berhenti.
 
 ### 3. **Pemeriksaan Kode Aktivasi**:
-   - Fungsi `check_activation_code()` meminta pengguna untuk memasukkan kode aktivasi yang benar (dalam hal ini, "UJICOBA").
+   - Fungsi `check_activation_code()` meminta pengguna untuk memasukkan kode aktivasi yang benar.
    - Skrip hanya akan melanjutkan jika kode yang dimasukkan benar, meningkatkan lapisan keamanan untuk penggunaan skrip.
 
 ### 4. **Pengelolaan Proxy dengan Pembatasan Ulang**:

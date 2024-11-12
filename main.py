@@ -194,4 +194,17 @@ async def main():
             file.write("\n".join(working_proxies))
 
         if not working_proxies:
-            logger.info("Semua proxy gagal, men
+            logger.info("Semua proxy gagal, menunggu untuk mencoba kembali...")
+        else:
+            logger.info(f"Proxy berhasil digunakan: {len(working_proxies)} proxy aktif.")
+
+        # Tunggu sebentar sebelum memulai percakapan berikutnya
+        await asyncio.sleep(reload_interval)
+
+async def process_proxy(queue, user_id, semaphore, proxy_failures):
+    while not queue.empty():
+        socks5_proxy = await queue.get()
+        await connect_to_wss(socks5_proxy, user_id, semaphore, proxy_failures)
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -143,14 +143,14 @@ async def connect_to_wss(socks5_proxy, user_id, semaphore, proxy_failures):
 
 # Fungsi untuk memuat ulang daftar proxy
 async def reload_proxy_list():
+    with open('local_proxies.txt', 'r') as file:
+        local_proxies = file.read().splitlines()
+    logger.info("Daftar proxy telah dimuat pertama kali.")
+    
     while True:
-        # Tunggu selama interval reload
-        await asyncio.sleep(reload_interval)
-        
-        # Muat ulang daftar proxy
+        await asyncio.sleep(reload_interval)  # Tunggu interval sebelum reload berikutnya
         with open('local_proxies.txt', 'r') as file:
             local_proxies = file.read().splitlines()
-        
         logger.info("Daftar proxy telah dimuat ulang.")
         return local_proxies
 
@@ -163,43 +163,28 @@ async def main():
     
     user_id = input("Masukkan user ID Anda: ")
 
-    # Proses reload daftar proxy secara otomatis
+    # Load proxy pertama kali tanpa delay
+    with open('local_proxies.txt', 'r') as file:
+        local_proxies = file.read().splitlines()
+    logger.info("Daftar proxy pertama kali dimuat.")
+    
+    # Task queue untuk membagi beban
+    queue = asyncio.Queue()
+    for proxy in local_proxies:
+        await queue.put(proxy)
+    
+    # Memulai task reload proxy secara berkala
     proxy_list_task = asyncio.create_task(reload_proxy_list())
 
     semaphore = asyncio.Semaphore(max_concurrent_connections)  # Batasi koneksi bersamaan
     proxy_failures = []
 
-    # Task queue untuk membagi beban
-    queue = asyncio.Queue()
+    tasks = []
+    for _ in range(len(local_proxies)):
+        task = asyncio.create_task(process_proxy(queue, user_id, semaphore, proxy_failures))
+        tasks.append(task)
 
-    while True:
-        # Tunggu jika daftar proxy baru sudah siap
-        local_proxies = await proxy_list_task
-
-        # Menambahkan proxy ke queue
-        for proxy in local_proxies:
-            await queue.put(proxy)
-
-        tasks = []
-        for _ in range(len(local_proxies)):
-            task = asyncio.create_task(process_proxy(queue, user_id, semaphore, proxy_failures))
-            tasks.append(task)
-
-        await asyncio.gather(*tasks)
-
-        # Simpan proxy yang berhasil kembali ke file dalam folder 'data'
-        working_proxies = [proxy for proxy in local_proxies if proxy not in proxy_failures]
-
-        with open('data/successful_proxies.txt', 'w') as file:
-            file.write("\n".join(working_proxies))
-
-        if not working_proxies:
-            logger.info("Semua proxy gagal, menunggu untuk mencoba kembali...")
-        else:
-            logger.info(f"Proxy berhasil digunakan: {len(working_proxies)} proxy aktif.")
-
-        # Tunggu sebentar sebelum memulai percakapan berikutnya
-        await asyncio.sleep(reload_interval)
+    await asyncio.gather(*tasks)
 
 async def process_proxy(queue, user_id, semaphore, proxy_failures):
     while not queue.empty():
